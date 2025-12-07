@@ -36,3 +36,6 @@
     transform: rotate(360deg);
   }
 }
+.MuiGrid-container {
+  justify-content: center;
+}
