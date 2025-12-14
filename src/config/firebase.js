@@ -34,6 +34,12 @@ if (typeof window !== 'undefined') {
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 
+// Note: For Safari compatibility, ensure your domain is added to Firebase authorized domains:
+// 1. Go to Firebase Console → Authentication → Settings → Authorized domains
+// 2. Add your production domain (e.g., yourdomain.com)
+// 3. For local development, 'localhost' is automatically authorized
+// Using signInWithPopup (instead of signInWithRedirect) provides better Safari support
+
 // Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app);
 

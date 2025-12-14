@@ -12,6 +12,16 @@ import {
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
+// Configure Google Auth Provider for better Safari compatibility
+const googleProvider = new GoogleAuthProvider();
+// Add scopes if needed
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
+// Set custom parameters for better Safari support
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -120,20 +130,39 @@ export const AuthProvider = ({ children }) => {
 
   const googleLogin = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      // Use signInWithPopup for better Safari compatibility
+      // Safari has better support for popups than redirects
+      await signInWithPopup(auth, googleProvider);
       return { success: true };
     } catch (error) {
       let message = 'Google login failed';
-      if (error.code === 'auth/popup-closed-by-user') {
-        message = 'Login popup was closed';
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        message = 'Login was cancelled';
-      } else if (error.code === 'auth/popup-blocked') {
-        message = 'Popup was blocked by browser. Please allow popups and try again';
-      } else {
-        message = error.message;
+      
+      // Handle specific error codes
+      switch (error.code) {
+        case 'auth/popup-closed-by-user':
+          message = 'Login popup was closed. Please try again.';
+          break;
+        case 'auth/cancelled-popup-request':
+          message = 'Login was cancelled. Please try again.';
+          break;
+        case 'auth/popup-blocked':
+          message = 'Popup was blocked by your browser. Please allow popups for this site and try again.';
+          break;
+        case 'auth/unauthorized-domain':
+          message = 'This domain is not authorized. Please contact support.';
+          console.error('Unauthorized domain error. Make sure your domain is added to Firebase authorized domains.');
+          break;
+        case 'auth/operation-not-allowed':
+          message = 'Google sign-in is not enabled. Please contact support.';
+          break;
+        case 'auth/network-request-failed':
+          message = 'Network error. Please check your internet connection and try again.';
+          break;
+        default:
+          message = error.message || 'An unexpected error occurred. Please try again.';
+          console.error('Google login error:', error);
       }
+      
       return { success: false, message };
     }
   };
