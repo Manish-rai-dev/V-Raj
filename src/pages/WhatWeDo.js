@@ -21,7 +21,7 @@ const whatWeDoSections = [
   {
     title: 'Mortises',
     description: 'Discover precision-engineered mortise locks from Vraj Enterprises, designed for smooth operation and long-lasting performance in all types of doors.',
-    image: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800&h=600&fit=crop',
+    image: 'https://res.cloudinary.com/ds0mdzvkd/image/upload/v1763895706/502_si5esk.jpg',
     icon: <SecurityIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />,
   },
 ];

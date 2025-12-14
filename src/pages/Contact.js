@@ -25,9 +25,30 @@ import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import emailjs from '@emailjs/browser';
 
 const Contact = () => {
   const location = useLocation();
+  
+  // EmailJS Configuration
+  // You need to set these up in your EmailJS account at https://www.emailjs.com/
+  // Get these values from: https://dashboard.emailjs.com/admin
+  const EMAILJS_SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || 'YOUR_SERVICE_ID';
+  const EMAILJS_TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || 'YOUR_TEMPLATE_ID';
+  const EMAILJS_PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || 'YOUR_PUBLIC_KEY';
+  
+  // Debug: Log EmailJS configuration status (remove in production)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('EmailJS Configuration Status:', {
+        SERVICE_ID: EMAILJS_SERVICE_ID !== 'YOUR_SERVICE_ID' ? '✓ Configured' : '✗ Not configured',
+        TEMPLATE_ID: EMAILJS_TEMPLATE_ID !== 'YOUR_TEMPLATE_ID' ? '✓ Configured' : '✗ Not configured',
+        PUBLIC_KEY: EMAILJS_PUBLIC_KEY !== 'YOUR_PUBLIC_KEY' ? '✓ Configured' : '✗ Not configured'
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -51,6 +72,7 @@ const Contact = () => {
     message: '',
     severity: 'success',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -62,22 +84,124 @@ const Contact = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isSubmitting) {
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    let emailSent = false;
+    
     try {
-      // Save to Firestore
-      const contactData = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        subject: formData.subject || '',
-        message: formData.message,
-        status: 'new',
-        notes: [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
+      // Check if EmailJS is properly configured
+      if (!EMAILJS_SERVICE_ID || 
+          !EMAILJS_TEMPLATE_ID || 
+          !EMAILJS_PUBLIC_KEY ||
+          EMAILJS_SERVICE_ID === 'YOUR_SERVICE_ID' || 
+          EMAILJS_TEMPLATE_ID === 'YOUR_TEMPLATE_ID' || 
+          EMAILJS_PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
+        console.error('EmailJS Configuration Check:', {
+          SERVICE_ID: EMAILJS_SERVICE_ID ? 'Set' : 'Missing',
+          TEMPLATE_ID: EMAILJS_TEMPLATE_ID ? 'Set' : 'Missing',
+          PUBLIC_KEY: EMAILJS_PUBLIC_KEY ? 'Set' : 'Missing'
+        });
+        throw new Error('EmailJS is not configured. Please set up EmailJS environment variables in the .env file and restart the development server. See EMAILJS_SETUP.md for instructions.');
+      }
 
-      await addDoc(collection(db, 'contacts'), contactData);
+      // Send email using EmailJS
+      // Recipients are configured in the EmailJS template, so we don't need to specify them here
+      try {
+        // Prepare email template parameters for EmailJS
+        const emailParams = {
+          from_name: formData.name,
+          from_email: formData.email,
+          phone: formData.phone,
+          subject: formData.subject || 'Contact Form Submission',
+          message: formData.message,
+          reply_to: formData.email,
+        };
 
+        // Send email using EmailJS (recipients are configured in the EmailJS template)
+        await emailjs.send(
+          EMAILJS_SERVICE_ID,
+          EMAILJS_TEMPLATE_ID,
+          emailParams,
+          EMAILJS_PUBLIC_KEY
+        );
+        emailSent = true;
+        console.log('Email sent successfully via EmailJS');
+      } catch (emailError) {
+        console.error('Email sending error:', emailError);
+        // Continue to try saving to Firestore even if email fails
+        throw new Error(`Email sending failed: ${emailError.text || emailError.message || 'Unknown error'}`);
+      }
+
+      // Save to Firestore (try even if email failed)
+      try {
+        const contactData = {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          subject: formData.subject || '',
+          message: formData.message,
+          status: 'new',
+          notes: [],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+
+        await addDoc(collection(db, 'contacts'), contactData);
+        console.log('Contact saved to Firestore successfully');
+      } catch (firestoreError) {
+        console.error('Firestore save error:', firestoreError);
+        console.error('Error code:', firestoreError.code);
+        console.error('Error details:', firestoreError);
+        
+        // If email was sent but Firestore failed, still show success for email
+        if (emailSent) {
+          let errorMessage = 'Email sent successfully, but failed to save to database.';
+          
+          // Provide specific error messages for common issues
+          if (firestoreError.code === 'permission-denied') {
+            errorMessage += ' Firestore security rules need to be configured. See console for details.';
+            console.error('⚠️ Firestore Permission Denied - You need to configure Firestore security rules to allow contact form submissions.');
+            console.error('Go to Firebase Console → Firestore Database → Rules and add rules to allow writes to the "contacts" collection.');
+          } else if (firestoreError.code === 'unavailable') {
+            errorMessage += ' Firestore database may not be created or enabled.';
+            console.error('⚠️ Firestore Unavailable - Make sure Firestore Database is created in Firebase Console.');
+          }
+          
+          setSnackbar({
+            open: true,
+            message: errorMessage,
+            severity: 'warning',
+          });
+          setFormData({
+            name: '',
+            email: '',
+            phone: '',
+            subject: '',
+            message: '',
+          });
+          return;
+        }
+        
+        // Build detailed error message
+        let errorMessage = 'Failed to save contact to database.';
+        if (firestoreError.code === 'permission-denied') {
+          errorMessage = 'Firestore permission denied. Security rules need to be configured. Check browser console for details.';
+        } else if (firestoreError.code === 'unavailable') {
+          errorMessage = 'Firestore database is unavailable. Make sure Firestore is enabled in Firebase Console.';
+        } else {
+          errorMessage = `Failed to save contact: ${firestoreError.message || firestoreError.code || 'Unknown error'}`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      // Both operations succeeded
       setSnackbar({
         open: true,
         message: 'Message sent successfully!',
@@ -92,11 +216,21 @@ const Contact = () => {
       });
     } catch (error) {
       console.error('Error submitting contact:', error);
+      let errorMessage = 'Failed to send message. Please try again.';
+      
+      if (error.message?.includes('EmailJS is not configured')) {
+        errorMessage = error.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setSnackbar({
         open: true,
-        message: 'Failed to send message. Please try again.',
+        message: errorMessage,
         severity: 'error',
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -322,9 +456,10 @@ const Contact = () => {
                       variant="contained"
                       color="primary"
                       size="large"
+                      disabled={isSubmitting}
                       sx={{ px: 5, py: 1.5, borderRadius: 3, fontWeight: 700, boxShadow: 3 }}
                     >
-                      Send Message
+                      {isSubmitting ? 'Sending...' : 'Send Message'}
                     </Button>
                   </Grid>
                 </Grid>

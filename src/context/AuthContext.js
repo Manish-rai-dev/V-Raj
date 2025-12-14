@@ -33,9 +33,10 @@ export const AuthProvider = ({ children }) => {
       if (firebaseUser) {
         setUser(firebaseUser);
         
-        // Determine admin role based on email
+        // Determine admin role based on specific email
         const email = firebaseUser.email || '';
-        const isAdmin = email.toLowerCase().includes('admin') || email.toLowerCase().endsWith('@admin.com');
+        const adminEmail = process.env.REACT_APP_ADMIN_EMAIL || 'raimanishkumar52@gmail.com';
+        const isAdmin = email.toLowerCase() === adminEmail.toLowerCase();
         
         // Set user data from Firebase Auth
         setUserData({
