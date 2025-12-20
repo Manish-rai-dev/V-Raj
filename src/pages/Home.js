@@ -164,7 +164,7 @@ const Home = () => {
                 Founded with a vision to bring excellence to the hardware industry, Vraj has built a reputation for precision engineering, reliable products, and exceptional customer service. Every lockset we create reflects our dedication to quality, safety, and long-lasting value.
               </Typography>
               <Typography variant="body1" paragraph>
-                Backed by years of experience and supported by Janton Enterprises, our parent company, we continue to evolve with modern trends while upholding the integrity of traditional workmanship. Whether you're building a new home or upgrading your existing setup, Vraj offers locking solutions that are both secure and stylish.
+                Backed by years of experience and supported by Jatin Enterprises, our parent company, we continue to evolve with modern trends while upholding the integrity of traditional workmanship. Whether you're building a new home or upgrading your existing setup, Vraj offers locking solutions that are both secure and stylish.
               </Typography>
               <Typography variant="body1" paragraph>
                 Join the growing number of customers who trust Vraj for peace of mind and performance — where security meets style.

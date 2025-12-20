@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -21,6 +21,7 @@ import {
   InputAdornment,
   useMediaQuery,
   useTheme,
+  Pagination,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/Lock';
@@ -219,9 +220,24 @@ const Catalog = () => {
     return acc;
   }, {});
 
+  // Define the order of categories for pagination
+  const categoryOrder = [
+    'SS Mortise handle on plate',
+    'SS Mortise handle on rose',
+    'zinc handle with steel plate',
+    'full zinc mortise rose',
+    'SS Pull handles',
+    'locks',
+    'door lock'
+  ];
+
+  // Filter and order categories based on the specified order
+  const orderedCategories = categoryOrder.filter(cat => catalogData[cat] && catalogData[cat].length > 0);
+  
   const driveFiles = Object.keys(catalogData);
   const [selectedDriveFile, setSelectedDriveFile] = useState(driveFiles[0] || '');
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const productImages = Object.keys(catalogData).reduce((acc, category) => {
     const images = catalogData[category]
@@ -258,6 +274,26 @@ const Catalog = () => {
   const handleCloseDialog = () => {
     setSelectedProduct(null);
   };
+
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Get the current category based on the page number
+  const getCurrentCategory = () => {
+    if (orderedCategories.length === 0) return null;
+    const index = currentPage - 1;
+    return orderedCategories[index] || orderedCategories[0];
+  };
+
+  // Reset page to 1 if current page exceeds available categories
+  useEffect(() => {
+    if (showAllCategories && currentPage > orderedCategories.length && orderedCategories.length > 0) {
+      setCurrentPage(1);
+    }
+  }, [showAllCategories, orderedCategories.length, currentPage]);
 
 
 
@@ -444,6 +480,7 @@ const Catalog = () => {
                   setShowAllCategories(!showAllCategories);
                   if (!showAllCategories) {
                     setSelectedDriveFile('');
+                    setCurrentPage(1); // Reset to first page when showing all categories
                   }
                 }}
                 sx={{ borderRadius: 2 }}
@@ -458,81 +495,124 @@ const Catalog = () => {
       {/* Product Grid */}
       <Grid container spacing={4} style={{ width: '100%', display: 'flex', justifyContent: 'center' }} >
         {showAllCategories ? (
-          // Show all categories with their images
-          Object.keys(productImages).length > 0 ? (
-            Object.keys(productImages).map((categoryName, categoryIdx) => (
-            <React.Fragment key={categoryName}>
-              {productImages[categoryName].length > 0 && (
-                <Grid item xs={12} sx={{ mt: categoryIdx > 0 ? 4 : 0 }}>
-                  <Typography variant="h5" sx={{ mb: 2, fontWeight: 600, color: 'primary.main', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {categoryName.toLowerCase().includes('lock') ? (
-                      <LockIcon />
-                    ) : categoryName.toLowerCase().includes('mortise') ? (
-                      <SecurityIcon />
-                    ) : categoryName.toLowerCase().includes('home') ? (
-                      <HomeIcon />
-                    ) : (
-                      <InfoIcon />
-                    )}
-                    {categoryName}
-                  </Typography>
-                  <Divider sx={{ mb: 3 }} />
-                </Grid>
-              )}
-              {isMobile ? (
-                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
-                  <Box sx={{ width: '100%', maxWidth: '100%' }}>
-                    <Carousel
-                      autoPlay={false}
-                      animation="slide"
-                      indicators={true}
-                      navButtonsAlwaysVisible={true}
-                      sx={{
-                        width: '100%',
-                        '& .CarouselItem': {
-                          display: 'flex',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        },
-                      }}
-                    >
-                      {productImages[categoryName].map((imageSource, idx) => {
-                        const productId = productIdMap[categoryName] && productIdMap[categoryName][idx] ? productIdMap[categoryName][idx] : null;
-                        const description = productDescriptionMap[categoryName] && productDescriptionMap[categoryName][idx] ? productDescriptionMap[categoryName][idx] : '';
-                        // Check if it's a full Cloudinary URL or a public ID
-                        const isFullUrl = imageSource && imageSource.startsWith('http');
-                        const isCloudinary = !isFullUrl;
-                        return (
-                          <Box key={`${categoryName}-${idx}`} sx={{ width: '100%', display: 'flex', justifyContent: 'center', py: 2 }}>
-                            <Box sx={{ width: '100%', maxWidth: '100%' }}>
-                              {renderProductCard(imageSource, categoryName, idx, productId, description, isCloudinary)}
-                            </Box>
-                          </Box>
-                        );
-                      })}
-                    </Carousel>
-                  </Box>
-                </Grid>
-              ) : (
-                productImages[categoryName].map((imageSource, idx) => {
-                  const productId = productIdMap[categoryName] && productIdMap[categoryName][idx] ? productIdMap[categoryName][idx] : null;
-                  const description = productDescriptionMap[categoryName] && productDescriptionMap[categoryName][idx] ? productDescriptionMap[categoryName][idx] : '';
-                  // Check if it's a full Cloudinary URL or a public ID
-                  const isFullUrl = imageSource && imageSource.startsWith('http');
-                  const isCloudinary = !isFullUrl;
+          // Show paginated categories - one category per page
+          orderedCategories.length > 0 ? (
+            <>
+              {(() => {
+                const categoryName = getCurrentCategory();
+                if (!categoryName || !productImages[categoryName] || productImages[categoryName].length === 0) {
                   return (
-                    <Fade in timeout={600 + (categoryIdx * 100 + idx * 200)} key={`${categoryName}-${idx}`}>
-                      <Grid item xs={12} sm={6} md={4}>
-                        {renderProductCard(imageSource, categoryName, idx, productId, description, isCloudinary)}
-                      </Grid>
-                    </Fade>
+                    <Grid item xs={12}>
+                      <Paper elevation={2} sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          No images available
+                        </Typography>
+                      </Paper>
+                    </Grid>
                   );
-                })
-              )}
-            </React.Fragment>
-          ))
+                }
+
+                return (
+                  <React.Fragment key={categoryName} style={{ display: 'flex', justifyContent: 'center' }}>
+                    <Grid item xs={12} sx={{ mb: 4, justifyContent: 'center' }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
+                        <Typography variant="h5" sx={{ fontWeight: 600, color: 'primary.main', display: 'flex', alignItems: 'center', gap: 1,justifyContent: 'center' }}>
+                          {categoryName.toLowerCase().includes('lock') ? (
+                            <LockIcon />
+                          ) : categoryName.toLowerCase().includes('mortise') ? (
+                            <SecurityIcon />
+                          ) : categoryName.toLowerCase().includes('home') ? (
+                            <HomeIcon />
+                          ) : (
+                            <InfoIcon />
+                          )}
+                          {categoryName}
+                        </Typography>
+                      </Box>
+                      <Divider sx={{ mt: 2 }} />
+                    </Grid>
+                    {isMobile ? (
+                      <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                        <Box sx={{ width: '100%', maxWidth: '100%' }}>
+                          <Carousel
+                            autoPlay={false}
+                            animation="slide"
+                            indicators={true}
+                            navButtonsAlwaysVisible={true}
+                            sx={{
+                              width: '100%',
+                              '& .CarouselItem': {
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              },
+                            }}
+                          >
+                            {productImages[categoryName].map((imageSource, idx) => {
+                              const productId = productIdMap[categoryName] && productIdMap[categoryName][idx] ? productIdMap[categoryName][idx] : null;
+                              const description = productDescriptionMap[categoryName] && productDescriptionMap[categoryName][idx] ? productDescriptionMap[categoryName][idx] : '';
+                              // Check if it's a full Cloudinary URL or a public ID
+                              const isFullUrl = imageSource && imageSource.startsWith('http');
+                              const isCloudinary = !isFullUrl;
+                              return (
+                                <Box key={`${categoryName}-${idx}`} sx={{ width: '100%', display: 'flex', justifyContent: 'center', py: 2 }}>
+                                  <Box sx={{ width: '100%', maxWidth: '100%' }}>
+                                    {renderProductCard(imageSource, categoryName, idx, productId, description, isCloudinary)}
+                                  </Box>
+                                </Box>
+                              );
+                            })}
+                          </Carousel>
+                        </Box>
+                      </Grid>
+                    ) : (
+                      <Grid item xs={12} sx={{ mt: 2, justifyContent: 'center' }}>
+                        <Grid container spacing={4} sx={{ justifyContent: 'center' }}>
+                          {productImages[categoryName].map((imageSource, idx) => {
+                            const productId = productIdMap[categoryName] && productIdMap[categoryName][idx] ? productIdMap[categoryName][idx] : null;
+                            const description = productDescriptionMap[categoryName] && productDescriptionMap[categoryName][idx] ? productDescriptionMap[categoryName][idx] : '';
+                            // Check if it's a full Cloudinary URL or a public ID
+                            const isFullUrl = imageSource && imageSource.startsWith('http');
+                            const isCloudinary = !isFullUrl;
+                            return (
+                              <Fade in timeout={600 + idx * 200} key={`${categoryName}-${idx}`}>
+                                <Grid item xs={12} sm={6} md={4}>
+                                  {renderProductCard(imageSource, categoryName, idx, productId, description, isCloudinary)}
+                                </Grid>
+                              </Fade>
+                            );
+                          })}
+                        </Grid>
+                      </Grid>
+                    )}
+                    {/* Pagination Controls */}
+                    <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 2 }}>
+                      <Paper elevation={2} sx={{ p: 2, borderRadius: 3 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Page {currentPage} of {orderedCategories.length}
+                          </Typography>
+                          <Pagination
+                            count={orderedCategories.length}
+                            page={currentPage}
+                            onChange={handlePageChange}
+                            color="primary"
+                            size={isMobile ? "small" : "large"}
+                            showFirstButton
+                            showLastButton
+                          />
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            {categoryName}
+                          </Typography>
+                        </Box>
+                      </Paper>
+                    </Grid>
+                  </React.Fragment>
+                );
+              })()}
+            </>
           ) : (
-            <Grid item xs={12}>
+            <Grid item xs={12} sx={{ justifyContent: 'center' }}>
               <Paper elevation={2} sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>
                 <Typography variant="h6" color="text.secondary" gutterBottom>
                   No images available
@@ -546,7 +626,27 @@ const Catalog = () => {
         ) : (
           // Show images for selected category
           (productImages[selectedDriveFile] || []).length > 0 ? (
-            isMobile ? (
+            <>
+              {selectedDriveFile && (
+                <Grid item xs={12} sx={{ mb: 4, justifyContent: 'center' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
+                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'primary.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {selectedDriveFile.toLowerCase().includes('lock') ? (
+                        <LockIcon />
+                      ) : selectedDriveFile.toLowerCase().includes('mortise') ? (
+                        <SecurityIcon />
+                      ) : selectedDriveFile.toLowerCase().includes('home') ? (
+                        <HomeIcon />
+                      ) : (
+                        <InfoIcon />
+                      )}
+                      {selectedDriveFile}
+                    </Typography>
+                  </Box>
+                  <Divider sx={{ mt: 2 }} />
+                </Grid>
+              )}
+              {isMobile ? (
               <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
                 <Box sx={{ width: '100%', maxWidth: '100%' }}>
                   <Carousel
@@ -581,21 +681,26 @@ const Catalog = () => {
                 </Box>
               </Grid>
             ) : (
-              (productImages[selectedDriveFile] || []).map((imageSource, idx) => {
-                const productId = productIdMap[selectedDriveFile] && productIdMap[selectedDriveFile][idx] ? productIdMap[selectedDriveFile][idx] : null;
-                const description = productDescriptionMap[selectedDriveFile] && productDescriptionMap[selectedDriveFile][idx] ? productDescriptionMap[selectedDriveFile][idx] : '';
-                // Check if it's a full Cloudinary URL or a public ID
-                const isFullUrl = imageSource && imageSource.startsWith('http');
-                const isCloudinary = !isFullUrl;
-                return (
-                  <Fade in timeout={600 + idx * 200} key={idx}>
-                    <Grid item xs={12} sm={6} md={4}>
-                      {renderProductCard(imageSource, selectedDriveFile, idx, productId, description, isCloudinary)}
-                    </Grid>
-                  </Fade>
-                );
-              })
-            )
+              <Grid item xs={12}>
+                <Grid container spacing={4} sx={{ justifyContent: 'center' }}>
+                  {(productImages[selectedDriveFile] || []).map((imageSource, idx) => {
+                    const productId = productIdMap[selectedDriveFile] && productIdMap[selectedDriveFile][idx] ? productIdMap[selectedDriveFile][idx] : null;
+                    const description = productDescriptionMap[selectedDriveFile] && productDescriptionMap[selectedDriveFile][idx] ? productDescriptionMap[selectedDriveFile][idx] : '';
+                    // Check if it's a full Cloudinary URL or a public ID
+                    const isFullUrl = imageSource && imageSource.startsWith('http');
+                    const isCloudinary = !isFullUrl;
+                    return (
+                      <Fade in timeout={600 + idx * 200} key={idx}>
+                        <Grid item xs={12} sm={6} md={4}>
+                          {renderProductCard(imageSource, selectedDriveFile, idx, productId, description, isCloudinary)}
+                        </Grid>
+                      </Fade>
+                    );
+                  })}
+                </Grid>
+              </Grid>
+            )}
+            </>
           ) : (
             <Grid item xs={12}>
               <Paper elevation={2} sx={{ p: 4, textAlign: 'center', borderRadius: 3 }}>

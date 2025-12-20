@@ -23,7 +23,7 @@ const Footer = () => {
               V-Raj Locks
             </Typography>
             <Typography variant="body2">
-              At Vraj, we take pride in being a trusted manufacturer of high-quality mortise locksets, delivering superior security and style for residential and commercial spaces. Backed by years of experience and supported by Janton Enterprises, we are committed to craftsmanship, innovation, and exceptional customer service.
+              At Vraj, we take pride in being a trusted manufacturer of high-quality mortise locksets, delivering superior security and style for residential and commercial spaces. Backed by years of experience and supported by Jatin Enterprises, we are committed to craftsmanship, innovation, and exceptional customer service.
             </Typography>
           </Grid>
           
